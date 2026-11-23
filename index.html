@@ -132,6 +132,7 @@ input[readonly]{background:var(--bg);font-weight:600}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
 .stats .kv{background:var(--card);border:1px solid var(--line)}
 .stats .kv b{font-size:18px}
+.dcard{cursor:pointer}.dcard.sel{outline:2px solid var(--pri,#2563eb)}.dcard.warn{background:#fef2f2!important;border-color:#fecaca!important}.dstats .kv b{font-size:20px;margin:2px 0}
 tfoot td{font-weight:700;background:#fafbfc}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:9px 16px;border-radius:8px;z-index:50;display:none}
 </style>
@@ -286,11 +287,11 @@ function render(){
   $('#app').innerHTML = `
   <div class="top">
     <div class="brand">Vendor <span>Payments</span></div>
-    <div class="nav"><button class="tab ${S.view==='bills'?'on':''}" data-act="view" data-id="bills">Bills</button><button class="tab ${S.view==='txn'?'on':''}" data-act="view" data-id="txn">Transactions</button><button class="tab ${S.view==='activity'?'on':''}" data-act="view" data-id="activity">Activity</button></div>
+    <div class="nav"><button class="tab ${S.view==='dash'?'on':''}" data-act="view" data-id="dash">Dashboard</button><button class="tab ${S.view==='bills'?'on':''}" data-act="view" data-id="bills">Bills</button><button class="tab ${S.view==='txn'?'on':''}" data-act="view" data-id="txn">Transactions</button><button class="tab ${S.view==='activity'?'on':''}" data-act="view" data-id="activity">Activity</button></div>
     <div class="who">${esc(u.name)}<br><small>${ROLE_LABEL[u.role]}</small></div>
     <button class="btn" data-act="logout">Log out</button>
   </div>
-  <div class="wrap">${S.view==='activity'?activityView():S.view==='txn'?txnView():billsView(mine)}</div>
+  <div class="wrap">${S.view==='activity'?activityView():S.view==='txn'?txnView():S.view==='dash'?dashView():billsView(mine)}</div>
   ${S.open?drawer(S.bills.find(b=>b.id===S.open)):''}`;
   const dr=$('.drawer'); if(dr) dr.scrollTop=sc;
   if(S.open){ const b=S.bills.find(x=>x.id===S.open); if(b&&b.doc&&b.doc.type==='application/pdf') previewPdf(b); }
@@ -343,6 +344,29 @@ function billsView(mine){
 const MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const ymKey = iso => { const d=new Date(iso); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); };
 const monthName = ym => { const [y,m]=ym.split('-'); return MONF[+m-1]+' '+y; };
+function dashView(){
+  const t0=today(), DAY=864e5;
+  const dd=d=>{const [y,m,x]=d.split('-'); return Math.round((new Date(+y,+m-1,+x)-t0)/DAY);};
+  const open=S.bills.filter(b=>!b.completedAt&&!denied(b)&&b.due);
+  const m=S.dmonth||'';
+  const base=m?open.filter(b=>b.due.slice(0,7)===m):open;
+  const defs=[['over','Overdue',d=>d<0],['today','Today',d=>d===0],['w1','Next week',d=>d>=1&&d<=7],['w2','Week 2',d=>d>=8&&d<=14],['w3','Week 3',d=>d>=15&&d<=21],['w4','Week 4',d=>d>=22&&d<=28]];
+  const rng={over:'before today',today:fmtD(ymd(t0)),w1:fmtD(ymd(new Date(+t0+DAY)))+' – '+fmtD(ymd(new Date(+t0+7*DAY))),w2:fmtD(ymd(new Date(+t0+8*DAY)))+' – '+fmtD(ymd(new Date(+t0+14*DAY))),w3:fmtD(ymd(new Date(+t0+15*DAY)))+' – '+fmtD(ymd(new Date(+t0+21*DAY))),w4:fmtD(ymd(new Date(+t0+22*DAY)))+' – '+fmtD(ymd(new Date(+t0+28*DAY)))};
+  const groups=defs.map(([k,l,f])=>{const list=base.filter(b=>f(dd(b.due))); return {k,l,list,sum:list.reduce((x,b)=>x+b.amount,0),ready:list.filter(allOk).length};});
+  const sel=S.dbk&&groups.find(g=>g.k===S.dbk);
+  const shown=(m&&!sel?base:(sel?sel.list:groups.filter(g=>g.k!=='over'||g.list.length).flatMap(g=>g.list))).slice().sort((a,b)=>a.due.localeCompare(b.due));
+  const months=[...new Set(open.map(b=>b.due.slice(0,7)))].sort();
+  const cards=groups.map(g=>`<div class="kv dcard ${S.dbk===g.k?'sel':''} ${g.k==='over'&&g.list.length?'warn':''}" data-act="dbk" data-id="${g.k}"><small>${g.l}</small><b>${inr(g.sum)}</b><small>${g.list.length} bill${g.list.length===1?'':'s'}${g.list.length?` · ${g.ready} approved`:''}</small><small class="mute">${rng[g.k]}</small></div>`).join('');
+  const total=base.reduce((x,b)=>x+b.amount,0);
+  const table=shown.length?`<table><thead><tr><th>Due date</th><th>Vendor</th><th class="r">Amount to arrange</th><th>Status</th></tr></thead><tbody>${shown.map(b=>`<tr data-act="open" data-id="${b.id}"><td>${fmtD(b.due)}${dueTag(b)}</td><td class="v">${esc(b.vendor)}</td><td class="r b">${inr(b.amount)}</td><td>${spill(status(b))}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2">Total · ${shown.length} bill${shown.length===1?'':'s'}</td><td class="r">${inr(shown.reduce((x,b)=>x+b.amount,0))}</td><td></td></tr></tfoot></table>`:`<div class="empty">No pending payments${m?' due in '+monthName(m):' in this period'}.</div>`;
+  return `<div class="bar"><b style="font-size:16px">Payments to arrange</b><span class="sp"></span><label style="margin:0">Month&nbsp;</label><input type="month" data-sel="dmonth" value="${m}" style="width:auto">${m?'<button class="btn sm" data-act="dclear">All</button>':''}</div>
+  ${months.length?`<div class="bar">${months.map(k=>`<button class="tab ${k===m?'on':''}" data-act="dmon" data-id="${k}">${monthName(k)}</button>`).join('')}</div>`:''}
+  <div class="stats dstats">${cards}</div>
+  <div class="bar"><small class="mute">${m?monthName(m)+': ':'All pending: '}<b>${inr(total)}</b> across ${base.length} bill${base.length===1?'':'s'} · amounts are gross bill amounts of unpaid bills by due date; TDS is applied by Accounts when paying.${sel?' · Showing '+sel.l+' (click it again to show all).':''}</small></div>
+  <div class="card tw">${table}</div>`;
+}
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
 function txnView(){
   const tds=seesTds(S.user);
   const done=S.bills.filter(b=>b.completedAt);
@@ -596,6 +620,9 @@ const A = {
   layout:el=>{S.layout=el.dataset.id;render();},
   pdf:el=>{ const b=S.bills.find(x=>x.id===el.dataset.id); if(b&&b.completedAt&&seesTds(S.user)) downloadPdf(b); },
   month:el=>{S.month=el.dataset.id;render();},
+  dbk:el=>{S.dbk=S.dbk===el.dataset.id?null:el.dataset.id;render();},
+  dmon:el=>{S.dmonth=S.dmonth===el.dataset.id?'':el.dataset.id;S.dbk=null;render();},
+  dclear:()=>{S.dmonth='';S.dbk=null;render();},
   comment:el=>{
     const b=S.bills.find(x=>x.id===el.dataset.id), t=$('#cm-in').value.trim(); if(!t) return toast('Write a comment first');
     log(b,t,{kind:'comment'}); save(); render(); const d=$('.drawer'); if(d) d.scrollTop=d.scrollHeight;
@@ -631,6 +658,7 @@ document.addEventListener('change',e=>{
   if(t.id==='d-file') attachDoc(t.files[0]);
   if(t.dataset&&t.dataset.sel==='actUser'){ S.actUser=t.value; render(); }
   if(t.dataset&&t.dataset.sel==='month'){ S.month=t.value||null; render(); }
+  if(t.dataset&&t.dataset.sel==='dmonth'){ S.dmonth=t.value||''; S.dbk=null; render(); }
 });
 document.addEventListener('keydown',e=>{ if(e.target.id==='f-collab'&&(e.key==='Enter'||e.key===',')){ e.preventDefault(); addChip(); } });
 ['dragover','dragleave','drop'].forEach(t=>document.addEventListener(t,e=>{
