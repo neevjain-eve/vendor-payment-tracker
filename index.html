@@ -289,7 +289,7 @@ function render(){
     <div class="brand">Vendor <span>Payments</span></div>
     <div class="nav"><button class="tab ${S.view==='dash'?'on':''}" data-act="view" data-id="dash">Dashboard</button><button class="tab ${S.view==='bills'?'on':''}" data-act="view" data-id="bills">Bills</button><button class="tab ${S.view==='txn'?'on':''}" data-act="view" data-id="txn">Transactions</button><button class="tab ${S.view==='activity'?'on':''}" data-act="view" data-id="activity">Activity</button></div>
     <div class="who">${esc(u.name)}<br><small>${ROLE_LABEL[u.role]}</small></div>
-    <button class="btn" data-act="logout">Log out</button>
+    <button class="btn" data-act="refresh" title="Reload the latest version and data">⟳ Refresh</button><button class="btn" data-act="logout">Log out</button>
   </div>
   <div class="wrap">${S.view==='activity'?activityView():S.view==='txn'?txnView():S.view==='dash'?dashView():billsView(mine)}</div>
   ${S.open?drawer(S.bills.find(b=>b.id===S.open)):''}`;
@@ -622,6 +622,7 @@ const A = {
   month:el=>{S.month=el.dataset.id;render();},
   dbk:el=>{S.dbk=S.dbk===el.dataset.id?null:el.dataset.id;render();},
   dmon:el=>{S.dmonth=S.dmonth===el.dataset.id?'':el.dataset.id;S.dbk=null;render();},
+  refresh:()=>{ S.bills=loadBills(); render(); setTimeout(()=>location.reload(),50); },
   dclear:()=>{S.dmonth='';S.dbk=null;render();},
   comment:el=>{
     const b=S.bills.find(x=>x.id===el.dataset.id), t=$('#cm-in').value.trim(); if(!t) return toast('Write a comment first');
@@ -643,7 +644,7 @@ document.addEventListener('click',e=>{ const el=e.target.closest('[data-act]'); 
 async function makeHash(u,p){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(u+':'+p)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 document.addEventListener('submit',async e=>{
   if(e.target.id!=='loginForm') return; e.preventDefault();
-  const name=$('#lu').value.trim().toLowerCase(), pw=$('#lp').value;
+  const name=$('#lu').value.trim().toLowerCase(), pw=$('#lp').value.trim();
   let h=''; try{ h=await makeHash(name,pw); }catch(err){ return $('#lerr').textContent='Login needs a secure (https) page.'; }
   const u=USERS.find(x=>x.u===name&&x.h===h);
   if(!u) return $('#lerr').textContent='Incorrect username or password.';
