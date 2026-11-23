@@ -149,6 +149,21 @@ input[readonly]{background:var(--bg);font-weight:600}
 .wb{height:7px;background:var(--bg);border-radius:6px;overflow:hidden;margin-bottom:6px}.wb i{display:block;height:100%;background:linear-gradient(90deg,#4f46e5,#7c3aed);border-radius:6px}
 .odue{background:var(--nobg);color:var(--no);border-radius:10px;padding:10px 14px;margin-bottom:14px;cursor:pointer}
 .dnote{color:var(--mute);font-size:12.5px;margin:0 2px 10px}
+
+body.dashv{background:#f9f8f8}
+.ah{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.ac{color:#6d6e6f;font-size:12.5px}.atl{font-size:22px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chip{font-size:12.5px;font-weight:500;background:#e8f0fe;color:#4573d2;border-radius:12px;padding:3px 10px}
+.aw{background:#fff;border:1px solid #e8ecee;border-radius:10px;padding:14px 16px}
+.at{font-size:13px;font-weight:600;color:#1e1f21;margin-bottom:8px}
+.anums{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:12px}
+.aw.num{cursor:pointer}.aw.num:hover{border-color:#4573d2}.aw.num.sel{border-color:#4573d2;box-shadow:0 0 0 2px #4573d2 inset}
+.an{font-size:24px;font-weight:700;margin:2px 0 4px}.as{font-size:12px;color:#6d6e6f}
+.agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px}
+.dn{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.lg{font-size:13px;margin:6px 0;display:flex;align-items:center;gap:7px}.lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.tv{display:grid;grid-template-columns:1fr 70px auto;gap:8px;align-items:center;font-size:12.5px;margin:9px 0}.tv span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wb2{height:7px;background:#f1f2f3;border-radius:4px;overflow:hidden}.wb2 i{display:block;height:100%;background:#4573d2;border-radius:4px}
+.lnk{color:#4573d2;cursor:pointer;font-weight:400;margin-left:6px}
 .dcard{cursor:pointer}.dcard.sel{outline:2px solid var(--pri,#2563eb)}.dcard.warn{background:#fef2f2!important;border-color:#fecaca!important}.dstats .kv b{font-size:20px;margin:2px 0}
 tfoot td{font-weight:700;background:#fafbfc}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:9px 16px;border-radius:8px;z-index:50;display:none}
@@ -297,6 +312,7 @@ function approvalBox(b){
 }
 
 function render(){
+  document.body.classList.toggle('dashv',S.view==='dash'&&!!S.user);
   const sc=($('.drawer')||{}).scrollTop||0;
   if(!S.user){ $('#app').innerHTML = loginView(); document.title='Vendor Payment Tracker'; return; }
   const u=S.user, mine=pendingFor(u);
@@ -368,24 +384,33 @@ function dashView(){
   const m=S.dmonth||'';
   const base=m?open.filter(b=>b.due.slice(0,7)===m):open;
   const R=(a,b)=>fmtD(ymd(at(a)))+' – '+fmtD(ymd(at(b)));
+  const COL={over:'#d9455f',today:'#f06a6a',tom:'#f1bd6c',w1:'#4573d2',w2:'#4ecbc4',w3:'#9a66f1',w4:'#ea4e9d'};
   const defs=[['over','Overdue','before today',d=>d<0],['today','Today',fmtD(ymd(t0)),d=>d===0],['tom','Tomorrow',fmtD(ymd(at(1))),d=>d===1],['w1','Next week (Week 1)',R(2,7),d=>d>=2&&d<=7],['w2','Week 2',R(8,14),d=>d>=8&&d<=14],['w3','Week 3',R(15,21),d=>d>=15&&d<=21],['w4','Week 4',R(22,28),d=>d>=22&&d<=28]];
   const G={}; defs.forEach(([k,l,r,f])=>{const list=base.filter(b=>f(dd(b.due))); G[k]={k,l,r,list,sum:list.reduce((x,b)=>x+b.amount,0),ready:list.filter(allOk).length};});
   const sel=S.dbk&&G[S.dbk];
   const shown=(sel?sel.list:m?base:Object.values(G).flatMap(g=>g.list)).slice().sort((a,b)=>a.due.localeCompare(b.due));
   const months=[...new Set(open.map(b=>b.due.slice(0,7)))].sort();
-  const next28=['today','tom','w1','w2','w3','w4'].reduce((x,k)=>x+G[k].sum,0);
-  const mx=Math.max(1,...['w1','w2','w3','w4'].map(k=>G[k].sum));
-  const hero=(g,cls)=>`<div class="hero ${cls} ${S.dbk===g.k?'sel':''}" data-act="dbk" data-id="${g.k}"><div class="hl">${g.l}</div><div class="hv">${inr(g.sum)}</div><div class="hs">${g.list.length} bill${g.list.length===1?'':'s'}${g.list.length?` · ${g.ready} approved`:''} · ${g.r}</div></div>`;
-  const wk=g=>`<div class="wk ${S.dbk===g.k?'sel':''}" data-act="dbk" data-id="${g.k}"><div class="wt"><span>${g.l}</span><small>${g.r}</small></div><div class="wv">${inr(g.sum)}</div><div class="wb"><i style="width:${Math.round(g.sum/mx*100)}%"></i></div><small>${g.list.length} bill${g.list.length===1?'':'s'}${g.list.length?` · ${g.ready} approved`:''}</small></div>`;
-  const od=G.over.list.length?`<div class="odue" data-act="dbk" data-id="over">⚠ Overdue: <b>${inr(G.over.sum)}</b> across ${G.over.list.length} bill${G.over.list.length===1?'':'s'} — click to view</div>`:'';
+  const keys=['today','tom','w1','w2','w3','w4'];
+  const next28=keys.reduce((x,k)=>x+G[k].sum,0);
+  const num=g=>`<div class="aw num ${S.dbk===g.k?'sel':''}" data-act="dbk" data-id="${g.k}"><div class="at">${g.l}</div><div class="an" style="color:${COL[g.k]}">${inr(g.sum)}</div><div class="as">${g.list.length} bill${g.list.length===1?'':'s'}${g.list.length?` · ${g.ready} approved`:''}</div><div class="as">${g.r}</div></div>`;
+  const mx=Math.max(1,...keys.map(k=>G[k].sum));
+  const bars=keys.map((k,i)=>{const h=Math.round(G[k].sum/mx*150), x=30+i*68; return `<g data-act="dbk" data-id="${k}" style="cursor:pointer"><rect x="${x}" y="${170-h}" width="44" height="${Math.max(h,2)}" rx="4" fill="${COL[k]}"/><text x="${x+22}" y="${164-h}" text-anchor="middle" font-size="10" fill="#6d6e6f">${G[k].sum?'₹'+Math.round(G[k].sum).toLocaleString('en-IN'):''}</text><text x="${x+22}" y="188" text-anchor="middle" font-size="10.5" fill="#6d6e6f">${({today:'Today',tom:'Tmrw',w1:'Wk 1',w2:'Wk 2',w3:'Wk 3',w4:'Wk 4'})[k]}</text></g>`;}).join('');
+  const chart=`<svg viewBox="0 0 450 200" width="100%" role="img" aria-label="Payments by period"><line x1="20" y1="170" x2="440" y2="170" stroke="#e8ecee"/>${bars}</svg>`;
+  const st=[['Ready to pay',base.filter(b=>allOk(b)&&dd(b.due)>=0).length,'#4ecbc4'],['Awaiting approval',base.filter(b=>!allOk(b)&&dd(b.due)>=0).length,'#f1bd6c'],['Overdue',G.over.list.length,'#d9455f']];
+  const tot=st.reduce((x,y)=>x+y[1],0); let acc=0; const C=2*Math.PI*45;
+  const arcs=tot?st.map(([l,n,c])=>{const len=n/tot*C; const o=`<circle cx="60" cy="60" r="45" fill="none" stroke="${c}" stroke-width="18" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-acc}" transform="rotate(-90 60 60)"/>`; acc+=len; return o;}).join(''):'<circle cx="60" cy="60" r="45" fill="none" stroke="#e8ecee" stroke-width="18"/>';
+  const donut=`<div class="dn"><svg viewBox="0 0 120 120" width="130">${arcs}<text x="60" y="58" text-anchor="middle" font-size="20" font-weight="700" fill="#1e1f21">${tot}</text><text x="60" y="73" text-anchor="middle" font-size="9" fill="#6d6e6f">bills</text></svg><div>${st.map(([l,n,c])=>`<div class="lg"><i style="background:${c}"></i>${l} <b>${n}</b></div>`).join('')}</div></div>`;
+  const vm={}; base.forEach(b=>vm[b.vendor]=(vm[b.vendor]||0)+b.amount); const top=Object.entries(vm).sort((a,b)=>b[1]-a[1]).slice(0,5); const tm=top.length?top[0][1]:1;
+  const topw=top.length?top.map(([v,a])=>`<div class="tv"><span>${esc(v)}</span><div class="wb2"><i style="width:${Math.round(a/tm*100)}%"></i></div><b>${inr(a)}</b></div>`).join(''):'<div class="empty">No data</div>';
   const table=shown.length?`<table><thead><tr><th>Due date</th><th>Vendor</th><th class="r">Amount to arrange</th><th>Status</th></tr></thead><tbody>${shown.map(b=>`<tr data-act="open" data-id="${b.id}"><td>${fmtD(b.due)}${dueTag(b)}</td><td class="v">${esc(b.vendor)}</td><td class="r b">${inr(b.amount)}</td><td>${spill(status(b))}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2">Total · ${shown.length} bill${shown.length===1?'':'s'}</td><td class="r">${inr(shown.reduce((x,b)=>x+b.amount,0))}</td><td></td></tr></tfoot></table>`:`<div class="empty">No pending payments${m?' due in '+monthName(m):' in this period'}.${S.bills.length?'':'<br><button class="btn pri" data-act="sample" style="margin-top:10px">Add sample bills to preview the dashboard</button>'}</div>`;
-  return `<div class="dh"><div><div class="dt">Payments to arrange</div><div class="dsub">Next 28 days: <b>${inr(next28)}</b>${m?' · filtered to '+monthName(m):''}</div></div><div class="dm"><label style="margin:0">Month</label><input type="month" data-sel="dmonth" value="${m}" style="width:auto">${m||S.dbk?'<button class="btn sm" data-act="dclear">Show all</button>':''}</div></div>
+  return `<div class="ah"><div><div class="ac">Reporting ›</div><div class="atl">Payments to arrange <span class="chip">Next 28 days: ${inr(next28)}</span></div></div>
+    <div class="dm"><label style="margin:0">Month</label><input type="month" data-sel="dmonth" value="${m}" style="width:auto">${m||S.dbk?'<button class="btn sm" data-act="dclear">Clear filters</button>':''}</div></div>
   ${months.length?`<div class="bar">${months.map(k=>`<button class="tab ${k===m?'on':''}" data-act="dmon" data-id="${k}">${monthName(k)}</button>`).join('')}</div>`:''}
-  ${od}
-  <div class="heroes">${hero(G.today,'h1')}${hero(G.tom,'h2')}</div>
-  <div class="weeks">${['w1','w2','w3','w4'].map(k=>wk(G[k])).join('')}</div>
-  <div class="dnote">Amounts are gross bill amounts of unpaid bills, grouped by due date. TDS is applied by Accounts when paying.${sel?' Showing <b>'+sel.l+'</b> — click it again to show all.':''}</div>
-  <div class="card tw">${table}</div>`;
+  ${G.over.list.length?`<div class="odue" data-act="dbk" data-id="over">⚠ Overdue: <b>${inr(G.over.sum)}</b> across ${G.over.list.length} bill${G.over.list.length===1?'':'s'} — click to view</div>`:''}
+  <div class="anums">${keys.map(k=>num(G[k])).join('')}</div>
+  <div class="agrid"><div class="aw"><div class="at">Upcoming payments by period</div>${chart}</div><div class="aw"><div class="at">Bills by status</div>${donut}</div><div class="aw"><div class="at">Top vendors by amount due</div>${topw}</div></div>
+  <div class="aw" style="padding:0"><div class="at" style="padding:14px 16px 0">Payments list${sel?' · '+sel.l+' <a class="lnk" data-act="dclear">show all</a>':''}</div><div class="tw">${table}</div></div>
+  <div class="dnote">Amounts are gross bill amounts of unpaid bills, grouped by due date. TDS is applied by Accounts when paying.</div>`;
 }
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
